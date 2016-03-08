@@ -1,0 +1,194 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Notify EMail by Lambda function for CloudWatch Logs Event",
+  "Parameters": {
+    "FilterPattern": {
+      "Type": "String",
+      "Description": "Filter pattern to notify(RegEx).",
+      "Default": "/.*/"
+    },
+    "NotifyMailAddress": {
+      "Type": "String",
+      "Description": "Enter email address for notify CloudWatch logs event (CANT Update!) ."
+    }
+  },
+  "Resources": {
+    "SNSTopic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "TopicName": "CloudWatchLogsNotifyTopic",
+        "Subscription": [
+          {
+            "Protocol": "email",
+            "Endpoint": {
+              "Ref": "NotifyMailAddress"
+            }
+          }
+        ],
+        "DisplayName": "Notify CloudWatch logs event."
+      }
+    },
+    "LambdaRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "Path": "/",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "Basic",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogGroup",
+                    "logs:CreateLogStream",
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": "arn:aws:logs:*:*:*"
+                }
+              ]
+            }
+          },
+          {
+            "PolicyName": "PublishSNS",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "sns:Publish"
+                  ],
+                  "Resource": {
+                    "Ref": "SNSTopic"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "PublishToSNSWhenCloudWatchLogsEvent": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Description": "Notify to SNS by CloudWatch Logs Event",
+        "Role": {
+          "Fn::GetAtt": [
+            "LambdaRole",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs",
+        "MemorySize": 128,
+        "Timeout": 3,
+        "Handler": "index.handler",
+        "Code": {
+          "ZipFile": {
+            "Fn::Join": [
+              "",
+              [
+                "var zlib = require('zlib');\n",
+                "var aws = require('aws-sdk');\n",
+                "var sns = new aws.SNS({ region: 'ap-northeast-1' });\n",
+                "exports.handler = function(input, context) {\n",
+                "  var data = new Buffer(input.awslogs.data, 'base64');\n",
+                "  zlib.gunzip(data, function(e, result) {\n",
+                "    if (e) {\n",
+                "      context.fail(e);\n",
+                "    } else {\n",
+                "      result = JSON.parse(result.toString('utf-8'));\n",
+                "      var logs = result['logEvents'].filter(function(evt) { return evt['message'].match(",
+                {
+                  "Ref": "FilterPattern"
+                },
+                ") ;}).map(function(evt) { return evt['message'] });\n",
+                "      console.log('processing' + logs.length + '/' + result['logEvents'].length + ' events.');\n",
+                "      if (logs.length === 0) {\n",
+                "        context.succeed();\n",
+                "        return;\n",
+                "      }\n",
+                "      var subject = 'CloudWatch Logs イベント通知';\n",
+                "      var payload = { default: '' };\n",
+                "      payload['default'] += 'NotifyAt: ' + new Date() + '\\n';\n",
+                "      payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\\n';\n",
+                "      payload['default'] += 'Filter: ' + result['subscriptionFilters'] + '\\n';\n",
+                "      payload['default'] += 'Messages:\\n';\n",
+                "      payload['default'] += logs.join('\\n---\\n');\n",
+                "      sns.publish({\n",
+                "        Subject: subject,\n",
+                "        Message: JSON.stringify(payload),\n",
+                "        MessageStructure: 'json',\n",
+                "        TargetArn: '",
+                {
+                  "Ref": "SNSTopic"
+                },
+                "'\n",
+                "      }, function(err, data) {\n",
+                "        if (err) context.fail(err);\n",
+                "        else context.succeed(data);\n",
+                "      });\n",
+                "   }\n",
+                "  });\n",
+                "};\n",
+                ""
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "LambdaPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "PublishToSNSWhenCloudWatchLogsEvent",
+            "Arn"
+          ]
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "logs.ap-northeast-1.amazonaws.com",
+        "SourceAccount": {
+          "Ref": "AWS::AccountId"
+        },
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:aws:logs:ap-northeast-1:",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              ":*"
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaFunction": {
+      "Description": "arn about lambda function",
+      "Value": {
+        "Fn::GetAtt": [
+          "PublishToSNSWhenCloudWatchLogsEvent",
+          "Arn"
+        ]
+      }
+    }
+  }
+}
