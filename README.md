@@ -4,6 +4,7 @@ that notify event with email using CloudWatchLogs subscription filter.
 
 # Usage
 Login to AWS management console and create CloudFormation stack with logs2sns.template.
+See: http://dev.classmethod.jp/cloud/aws/notify-error-cloudwatch-logs-with-lambda/ 
 
 ## CloudFormation Parameters
 - FilterPattern: Log pattern to notify
