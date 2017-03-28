@@ -1,0 +1,165 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: Notify EMail by Lambda function for CloudWatch Logs Event (2way)
+Parameters:
+  FilterPatternError:
+    Type: String
+    Description: Filter pattern to ERROR notify(RegEx).
+    Default: /.*/
+  MailSubjectError:
+    Type: String
+    Description: Subject of ERROR notify mail
+    Default: "[Error] Notify From CloudWatch Logs"
+  FilterPatternWarning:
+    Type: String
+    Description: Filter pattern to WARNING notify(RegEx).
+    Default: /.*/
+  MailSubjectWarning:
+    Type: String
+    Description: Subject of WARNING notify mail
+    Default: "[Warning] Notify From CloudWatch Logs"
+Resources:
+  SNSTopicError:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CloudWatchLogsErrorNotifyTopic
+      DisplayName: Notify CloudWatch logs event (Error).
+  SNSTopicWarning:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: CloudWatchLogsWarningNotifyTopic
+      DisplayName: Notify CloudWatch logs event (Warning).
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Basic
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+        - PolicyName: PublishSNS
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref SNSTopicError
+                  - !Ref SNSTopicWarning
+  PublishToSNSWhenCloudWatchLogsEvent:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Notify to SNS by CloudWatch Logs Event
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: nodejs4.3
+      MemorySize: 128
+      Timeout: 3
+      Handler: index.handler
+      Code:
+        ZipFile: !Sub |
+          var zlib = require('zlib');
+          var aws = require('aws-sdk');
+          var sns = new aws.SNS({ region: 'ap-northeast-1' });
+          exports.handler = function(input, context, callback) {
+            var data = new Buffer(input.awslogs.data, 'base64');
+            zlib.gunzip(data, function(e, result) {
+              if (e) {
+                callback(e);
+              } else {
+                result = JSON.parse(result.toString('utf-8'));
+                var errorLogs = result['logEvents'].filter(function(evt) { return evt['message'].match(${FilterPatternError}) ;}).map(function(evt) { return evt['message'] });
+                console.log('processing[Error]' + errorLogs.length + '/' + result['logEvents'].length + ' events.');
+                var warnLogs = result['logEvents'].filter(function(evt) { return evt['message'].match(${FilterPatternWarning}) ;}).map(function(evt) { return evt['message'] });
+                console.log('processing[Warning]' + warnLogs.length + '/' + result['logEvents'].length + ' events.');
+                if (errorLogs.length === 0 && warnLogs.length === 0) {
+                  callback();
+                  return;
+                }
+                if (0 < errorLogs.length) {
+                  // has error log
+                  var subject = '${MailSubjectError}';
+                  var payload = { default: '' };
+                  payload['default'] += 'NotifyAt: ' + new Date() + '\n';
+                  payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';
+                  payload['default'] += 'Filter: ' + result['subscriptionFilters'] + '\n';
+                  payload['default'] += 'Messages:\n';
+                  payload['default'] += errorLogs.join('\n---\n');
+                  sns.publish({
+                    Subject: subject,
+                    Message: JSON.stringify(payload),
+                    MessageStructure: 'json',
+                    TargetArn: '${SNSTopicError}'
+                  }, function(err, data) {
+                    if (err) {
+                      callback(err);
+                    } else if (0 < warnLogs.length) {
+                      // has waring too
+                      var subject = '${MailSubjectWarning}';
+                      var payload = { default: '' };
+                      payload['default'] += 'NotifyAt: ' + new Date() + '\n';
+                      payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';
+                      payload['default'] += 'Filter: ' + result['subscriptionFilters'] + '\n';
+                      payload['default'] += 'Messages:\n';
+                      payload['default'] += warnLogs.join('\n---\n');
+                      sns.publish({
+                        Subject: subject,
+                        Message: JSON.stringify(payload),
+                        MessageStructure: 'json',
+                        TargetArn: '${SNSTopicWarning}'
+                      }, function(err, data) {
+                        if (err) callback(err);
+                        else callback(null, data);
+                      });
+                    } else {
+                      callback(null, data);
+                    }
+                  });
+                } else {
+                  // has NOT error log == warning only
+                  var subject = '${MailSubjectWarning}';
+                  var payload = { default: '' };
+                  payload['default'] += 'NotifyAt: ' + new Date() + '\n';
+                  payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';
+                  payload['default'] += 'Filter: ' + result['subscriptionFilters'] + '\n';
+                  payload['default'] += 'Messages:\n';
+                  payload['default'] += warnLogs.join('\n---\n');
+                  sns.publish({
+                    Subject: subject,
+                    Message: JSON.stringify(payload),
+                    MessageStructure: 'json',
+                    TargetArn: '${SNSTopicWarning}'
+                  }, function(err, data) {
+                    if (err) callback(err);
+                    else callback(null, data);
+                  });
+                }
+              }
+            });
+          };
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt PublishToSNSWhenCloudWatchLogsEvent.Arn
+      Action: lambda:InvokeFunction
+      Principal: logs.ap-northeast-1.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub arn:aws:logs:ap-northeast-1:${AWS::AccountId}:*
+Outputs:
+  LambdaFunction:
+    Description: arn about lambda function
+    Value: !GetAtt PublishToSNSWhenCloudWatchLogsEvent.Arn
