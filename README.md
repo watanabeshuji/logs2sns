@@ -3,12 +3,25 @@ logs2sns is CloudFormation template for Lambda function
 that notify event with email using CloudWatchLogs subscription filter.
 
 # Usage
-Login to AWS management console and create CloudFormation stack with logs2sns.template.
+Login to AWS management console and create CloudFormation stack with logs2sns.yml(logs2sns2.yml).
 See: http://dev.classmethod.jp/cloud/aws/notify-error-cloudwatch-logs-with-lambda/ 
+
+# Standard logs2sns
+Standard logs2sns has one FilterPattern and one SNS Topic.
 
 ## CloudFormation Parameters
 - FilterPattern: Log pattern to notify
-- NotifyMailAddress: Mail address notify to
+- MailSubject: Subject of notify mail
+
+# 2way logs2sns
+2way logs2sns has two set of FilterPattern and one SNS Topic.
+One is warning filter and other is error filter.
+
+## CloudFormation Parameters
+- FilterPatternError: Error log pattern to notify
+- MailSubjectError: Subject of error notify mail
+- FilterPatternWarning: Warning log pattern to notify
+- MailSubjectWarning: Subject of warning notify mail
 
 # How it works?
 - Create SNS Topic with email subscription.
