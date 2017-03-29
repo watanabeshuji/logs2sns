@@ -10,18 +10,12 @@ Parameters:
     Type: String
     Description: Subject of notify mail
     Default: Notify From CloudWatch Logs
-  NotifyMailAddress:
-    Type: String
-    Description: Enter email address for notify CloudWatch logs event (CANT Update!) .
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
       TopicName: CloudWatchLogsNotifyTopic
       DisplayName: Notify CloudWatch logs event.
-      Subscription:
-        - Protocol: email
-          Endpoint: !Ref NotifyMailAddress
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
