@@ -10,11 +10,15 @@ Parameters:
     Type: String
     Description: Subject of notify mail
     Default: Notify From CloudWatch Logs
+  NotifyTopicName:
+    Type: String
+    Description: SNS topic name for notify CloudWatch Logs
+    Default: CloudWatchLogsNotifyTopic
 Resources:
   SNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: CloudWatchLogsNotifyTopic
+      TopicName: !Ref NotifyTopicName
       DisplayName: Notify CloudWatch logs event.
   LambdaRole:
     Type: AWS::IAM::Role

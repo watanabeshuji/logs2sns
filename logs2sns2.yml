@@ -10,6 +10,10 @@ Parameters:
     Type: String
     Description: Subject of ERROR notify mail
     Default: "[Error] Notify From CloudWatch Logs"
+  NotifyTopicNameError:
+    Type: String
+    Description: SNS topic name for ERROR notify CloudWatch Logs
+    Default: CloudWatchLogsErrorNotifyTopic
   FilterPatternWarning:
     Type: String
     Description: Filter pattern to WARNING notify(RegEx).
@@ -18,16 +22,20 @@ Parameters:
     Type: String
     Description: Subject of WARNING notify mail
     Default: "[Warning] Notify From CloudWatch Logs"
+  NotifyTopicNameWarning:
+    Type: String
+    Description: SNS topic name for WARNING notify CloudWatch Logs
+    Default: CloudWatchLogsWarningNotifyTopic
 Resources:
   SNSTopicError:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: CloudWatchLogsErrorNotifyTopic
+      TopicName: !Ref ErrorNotifyTopicName
       DisplayName: Notify CloudWatch logs event (Error).
   SNSTopicWarning:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: CloudWatchLogsWarningNotifyTopic
+      TopicName: !Ref WarningNotifyTopicName
       DisplayName: Notify CloudWatch logs event (Warning).
   LambdaRole:
     Type: AWS::IAM::Role
