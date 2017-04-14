@@ -2,27 +2,35 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: Notify EMail by Lambda function for CloudWatch Logs Event (2way)
 Parameters:
-  FilterPatternError:
+  ErrorFilterPattern:
     Type: String
     Description: Filter pattern to ERROR notify(RegEx).
     Default: /.*/
-  MailSubjectError:
+  ErrorFilterPatternExcluded:
+    Type: String
+    Description: Exclude filter pattern to ERROR notify(RegEx).
+    Default: /$^/
+  ErrorMailSubject:
     Type: String
     Description: Subject of ERROR notify mail
     Default: "[Error] Notify From CloudWatch Logs"
-  NotifyTopicNameError:
+  ErrorNotifyTopicName:
     Type: String
     Description: SNS topic name for ERROR notify CloudWatch Logs
     Default: CloudWatchLogsErrorNotifyTopic
-  FilterPatternWarning:
+  WarningFilterPattern:
     Type: String
     Description: Filter pattern to WARNING notify(RegEx).
     Default: /.*/
-  MailSubjectWarning:
+  WarningFilterPatternExcluded:
+    Type: String
+    Description: Exclude filter pattern to WARNING notify(RegEx).
+    Default: /$^/
+  WarningMailSubject:
     Type: String
     Description: Subject of WARNING notify mail
     Default: "[Warning] Notify From CloudWatch Logs"
-  NotifyTopicNameWarning:
+  WarningNotifyTopicName:
     Type: String
     Description: SNS topic name for WARNING notify CloudWatch Logs
     Default: CloudWatchLogsWarningNotifyTopic
@@ -90,9 +98,15 @@ Resources:
                 callback(e);
               } else {
                 result = JSON.parse(result.toString('utf-8'));
-                var errorLogs = result['logEvents'].filter(function(evt) { return evt['message'].match(${FilterPatternError}) ;}).map(function(evt) { return evt['message'] });
+                var errorLogs = result['logEvents']
+                                     .filter(function(evt) { return evt['message'].match(${ErrorFilterPattern}) ;})
+                                     .filter(function(evt) { return !evt['message'].match(${ErrorFilterPatternExcluded}) ;})
+                                     .map(function(evt) { return evt['message'] });
                 console.log('processing[Error]' + errorLogs.length + '/' + result['logEvents'].length + ' events.');
-                var warnLogs = result['logEvents'].filter(function(evt) { return evt['message'].match(${FilterPatternWarning}) ;}).map(function(evt) { return evt['message'] });
+                var warnLogs = result['logEvents']
+                                     .filter(function(evt) { return evt['message'].match(${WarningFilterPattern}) ;})
+                                     .filter(function(evt) { return !evt['message'].match(${WarningFilterPatternExcluded}) ;})
+                                     .map(function(evt) { return evt['message'] });
                 console.log('processing[Warning]' + warnLogs.length + '/' + result['logEvents'].length + ' events.');
                 if (errorLogs.length === 0 && warnLogs.length === 0) {
                   callback();
@@ -100,7 +114,7 @@ Resources:
                 }
                 if (0 < errorLogs.length) {
                   // has error log
-                  var subject = '${MailSubjectError}';
+                  var subject = '${ErrorMailSubject}';
                   var payload = { default: '' };
                   payload['default'] += 'NotifyAt: ' + new Date() + '\n';
                   payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';
@@ -117,7 +131,7 @@ Resources:
                       callback(err);
                     } else if (0 < warnLogs.length) {
                       // has waring too
-                      var subject = '${MailSubjectWarning}';
+                      var subject = '${WarningMailSubject}';
                       var payload = { default: '' };
                       payload['default'] += 'NotifyAt: ' + new Date() + '\n';
                       payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';
@@ -139,7 +153,7 @@ Resources:
                   });
                 } else {
                   // has NOT error log == warning only
-                  var subject = '${MailSubjectWarning}';
+                  var subject = '${WarningMailSubject}';
                   var payload = { default: '' };
                   payload['default'] += 'NotifyAt: ' + new Date() + '\n';
                   payload['default'] += 'Log: ' + result['logGroup'] + ' - ' + result['logStream'] + '\n';

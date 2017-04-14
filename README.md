@@ -11,6 +11,7 @@ Standard logs2sns has one FilterPattern and one SNS Topic.
 
 ## CloudFormation Parameters
 - FilterPattern: Log pattern to notify
+- FilterPatternExcluded: Log exclude pattern to notify
 - MailSubject: Subject of notify mail
 ｰ NotifyTopicNameWarning: SNS topic name for notify.
 
@@ -19,12 +20,14 @@ Standard logs2sns has one FilterPattern and one SNS Topic.
 One is warning filter and other is error filter.
 
 ## CloudFormation Parameters
-- FilterPatternError: Error log pattern to notify
-- MailSubjectError: Subject of error notify mail
-ｰ NotifyTopicNameError: SNS topic name for error notify.
-- FilterPatternWarning: Warning log pattern to notify
-- MailSubjectWarning: Subject of warning notify mail
-ｰ NotifyTopicNameWarning: SNS topic name for warning notify.
+- ErrorFilterPattern: Error log pattern to notify
+- ErrorFilterPatternExcluded: Error log exclude pattern to notify
+- ErrorMailSubject: Subject of error notify mail
+ｰ ErrorNotifyTopicName: SNS topic name for error notify.
+- WarningFilterPattern: Warning log pattern to notify
+- WarningFilterPatternExcluded: Warning log exclude pattern to notify
+- WarningMailSubject: Subject of warning notify mail
+ｰ WarningNotifyTopicName: SNS topic name for warning notify.
 
 # How it works?
 - Create SNS Topic with email subscription.

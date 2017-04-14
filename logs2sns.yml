@@ -6,6 +6,10 @@ Parameters:
     Type: String
     Description: Filter pattern to notify(RegEx).
     Default: /.*/
+  FilterPatternExcluded:
+    Type: String
+    Description: Exclude filter pattern to notify(RegEx).
+    Default: /$^/
   MailSubject:
     Type: String
     Description: Subject of notify mail
@@ -71,7 +75,10 @@ Resources:
                 callback(e);
               } else {
                 result = JSON.parse(result.toString('utf-8'));
-                var logs = result['logEvents'].filter(function(evt) { return evt['message'].match(${FilterPattern}) ;}).map(function(evt) { return evt['message'] });
+                var logs = result['logEvents']
+                               .filter(function(evt) { return evt['message'].match(${FilterPattern}) ;})
+                               .filter(function(evt) { return !evt['message'].match(${FilterPatternExcluded}) ;})
+                               .map(function(evt) { return evt['message'] });
                 console.log('processing' + logs.length + '/' + result['logEvents'].length + ' events.');
                 if (logs.length === 0) {
                   callback();
