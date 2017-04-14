@@ -5,7 +5,7 @@ Parameters:
   ErrorFilterPattern:
     Type: String
     Description: Filter pattern to ERROR notify(RegEx).
-    Default: /.*/
+    Default: /ERROR/
   ErrorFilterPatternExcluded:
     Type: String
     Description: Exclude filter pattern to ERROR notify(RegEx).
@@ -21,7 +21,7 @@ Parameters:
   WarningFilterPattern:
     Type: String
     Description: Filter pattern to WARNING notify(RegEx).
-    Default: /.*/
+    Default: /WARN/
   WarningFilterPatternExcluded:
     Type: String
     Description: Exclude filter pattern to WARNING notify(RegEx).
