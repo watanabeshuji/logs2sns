@@ -59,7 +59,7 @@ Resources:
     Properties:
       Description: Notify to SNS by CloudWatch Logs Event
       Role: !GetAtt LambdaRole.Arn
-      Runtime: nodejs4.3
+      Runtime: nodejs6.10
       MemorySize: 128
       Timeout: 3
       Handler: index.handler
